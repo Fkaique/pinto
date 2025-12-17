@@ -39,7 +39,12 @@ canvas {
 
 @media (max-width: 600px){
     .container{
+        margin-left: 10px;
         width: 200px;
         height: 200px;
+    }
+    .controlers {
+        justify-content: center;
+        flex-direction: column;
     }
 }
