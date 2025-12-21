@@ -231,6 +231,9 @@ canvas.addEventListener('pointerdown', (e)=>{
 canvas.addEventListener('pointerup', (e)=>{
     if (!gotas.checked) return
 
+    e.preventDefault()
+    e.stopPropagation()
+
     const [mx, my] = canvasRelative(e.clientX, e.clientY)
 
     const image = ctx.getImageData(mx, my, 1, 1)
