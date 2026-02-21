@@ -16,6 +16,13 @@ const gotas = document.getElementById('gotas')
 const corA = document.getElementById('corA')
 const corB = document.getElementById('corB')
 
+// historico
+
+let undoStack = []
+let redoStack = []
+
+//
+
 numRange.textContent = range.value
 
 let canvas = document.createElement('canvas')
@@ -49,7 +56,7 @@ function resize() {
     scale = container.clientHeight / canvas.height
 
     // 3️⃣ aplica proporcionalmente
-    container.style.width  = (canvas.width  * scale) + "px"
+    container.style.width = (canvas.width * scale) + "px"
     container.style.height = (canvas.height * scale) + "px"
 
     ctx.fillStyle = corB.value
@@ -71,11 +78,48 @@ container.appendChild(canvas)
 let pressed = false
 let size = 1;
 
+// history
+
+
+function saveState() {
+    undoStack.push(
+        ctx.getImageData(0, 0, canvas.width, canvas.height)
+    )
+    if (undoStack.length > 100) {
+        undoStack.shift()
+    }
+
+    redoStack = []
+}
+
+function undo() {
+    if (undoStack.length === 0) return
+
+    redoStack.push(
+        ctx.getImageData(0, 0, canvas.width, canvas.height)
+    )
+
+    const previous = undoStack.pop()
+    ctx.putImageData(previous, 0, 0)
+}
+
+function redo() {
+    if (redoStack.length === 0) return
+
+    undoStack.push(
+        ctx.getImageData(0, 0, canvas.width, canvas.height)
+    )
+    const next = redoStack.pop()
+    ctx.putImageData(next, 0, 0)
+}
+
+//
+
 function colorMatches(c1, c2) {
     return ((Math.abs(c1[0] - c2[0]) +
-    Math.abs(c1[1] - c2[1]) +
-    Math.abs(c1[2] - c2[2]) +
-    Math.abs(c1[3] - c2[3])) / 4) < 3;
+        Math.abs(c1[1] - c2[1]) +
+        Math.abs(c1[2] - c2[2]) +
+        Math.abs(c1[3] - c2[3])) / 4) < 3;
 }
 /**
  * 
@@ -103,54 +147,54 @@ function lineTo(x2, y2, thickness = 1) {
 
     let dx = x2 - x1
     let dy = y2 - y1
-    
+
     const steps = Math.max(Math.abs(dx), Math.abs(dy))
     if (steps === 0) return
-    
+
     const xInc = dx / steps
     const yInc = dy / steps
-    
+
     const r = Math.floor(thickness / 2)
-    
+
     // bounding box
     const minX = Math.floor(Math.min(x1, x2) - r)
     const minY = Math.floor(Math.min(y1, y2) - r)
     const maxX = Math.ceil(Math.max(x1, x2) + r)
     const maxY = Math.ceil(Math.max(y1, y2) + r)
-    
+
     const sx = Math.max(0, minX)
     const sy = Math.max(0, minY)
     const ex = Math.min(canvas.width, maxX)
     const ey = Math.min(canvas.height, maxY)
-    
+
     const sw = Math.max(size + 1, ex - sx)
     const sh = Math.max(size + 1, ey - sy)
-    
+
     const image = ctx.getImageData(sx, sy, sw, sh)
     const w = image.width
     const c = 4
-    
+
     let x = x1
     let y = y1
-    
+
     for (let i = 0; i <= steps; i++) {
         const cx = Math.round(x)
         const cy = Math.round(y)
-        
+
         for (let ox = -r; ox <= r; ox++) {
             for (let oy = -r; oy <= r; oy++) {
                 if (ox * ox + oy * oy > r * r) continue
-                
+
                 const px = cx + ox
                 const py = cy + oy
-                
+
                 // converter para coordenadas locais
                 const lx = px - sx
                 const ly = py - sy
-                
+
                 if (lx < 0 || ly < 0 || lx >= sw || ly >= sh)
                     continue
-                
+
                 const index = (ly * w + lx) * c
                 image.data[index] = lineStroke[0]
                 image.data[index + 1] = lineStroke[1]
@@ -158,11 +202,11 @@ function lineTo(x2, y2, thickness = 1) {
                 image.data[index + 3] = lineStroke[3]
             }
         }
-        
+
         x += xInc
         y += yInc
     }
-    
+
     ctx.putImageData(image, sx, sy)
     lineStart = [x2, y2]
 }
@@ -173,7 +217,7 @@ function drawDot(x, y, thickness) {
         x - r, y - r,
         thickness, thickness
     )
-    
+
     for (let ox = -r; ox <= r; ox++) {
         for (let oy = -r; oy <= r; oy++) {
             if (ox * ox + oy * oy > r * r) continue
@@ -186,7 +230,7 @@ function drawDot(x, y, thickness) {
             image.data[i + 3] = lineStroke[3]
         }
     }
-    
+
     ctx.putImageData(image, x - r, y - r)
 }
 
@@ -202,10 +246,10 @@ function fill(x, y, tint) {
     while (elements.length > 0 && max-- > 0) {
         let atual = elements.pop()
         if (!atual) continue;
-        
+
         if ((atual[0] < 0 || atual[0] > image.width) ||
-        (atual[1] < 0 || atual[1] > image.height)) continue;
-        
+            (atual[1] < 0 || atual[1] > image.height)) continue;
+
         let indexAtual = (w * atual[1] * c) + (atual[0] * c)
         let corAtual = image.data.slice(indexAtual, indexAtual + c)
         const vizinhos = [
@@ -222,7 +266,7 @@ function fill(x, y, tint) {
                 elements.push([vx, vy])
             }
         }
-        
+
         if (colorMatches(corAtual, color)) {
             image.data[indexAtual] = tint[0]
             image.data[indexAtual + 1] = tint[1]
@@ -242,13 +286,29 @@ function canvasRelative(clientX, clientY) {
     return [x, y]
 }
 
+///
+
+document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey && e.key === 'z') {
+        e.preventDefault()
+        undo()
+    }
+
+    if (e.ctrlKey && e.key === 'y') {
+        e.preventDefault()
+        redo()
+    }
+    console.log(e.key);
+    
+})
+
 drawWidth.addEventListener('change', () => {
     if (trancado.checked) {
         drawHeight.value = drawWidth.value
     }
     resize()
 
-    
+
 })
 drawHeight.addEventListener('change', () => {
     if (trancado.checked) {
@@ -264,18 +324,20 @@ trancado.addEventListener('change', () => {
 
 canvas.addEventListener('pointerdown', (e) => {
     const [mx, my] = canvasRelative(e.clientX, e.clientY)
-    
+
     if (balde.checked) {
+        saveState()
         fill(mx, my, hexToRgba(corA.value))
     } else if (pincel.checked || borracha.checked) {
+        saveState()
         if (e.button != 0) return;
         pressed = true
         moveTo(mx, my)
-        
+
         lineStroke = borracha.checked
-        ? hexToRgba(corB.value)
-        : hexToRgba(corA.value)
-        
+            ? hexToRgba(corB.value)
+            : hexToRgba(corA.value)
+
         // 🔥 desenha ponto no clique
         drawDot(mx, my, size)
     }
