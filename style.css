@@ -25,6 +25,9 @@
     overflow: hidden;
     width: 500px;
     height: 500px;
+    background-image: url(./imgs/fundo.png);
+    background-repeat: repeat;
+    background-
 }
 .bottom{
     display: flex;
